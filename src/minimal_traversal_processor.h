@@ -28,28 +28,22 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STABILITY_PROCESSOR_H_
-#define STABILITY_PROCESSOR_H_
+#ifndef MINIMAL_TRAVERSAL_PROCESSOR_H_
+#define MINIMAL_TRAVERSAL_PROCESSOR_H_
 
 #include "transaction_loader.h"
 
-void initialize(uint *items, uint itemsCount, mpz_t * genTotalCountGMP,
-		mpz_t * genLocalCountGMP, mpz_t * rangeCountGMP,
-		Transactions * transactions, uint refCount, Transactionset * root);
+void initialize(uint *items, uint itemsCount, Transactions * transactions,
+		uint refCount, Transactionset * root);
 
-void processRecursive(Transactionset * current, mpz_t * genTotalCountGMP,
-		mpz_t * genLocalCountGMP, mpz_t * nongenTotalCountGMP,
-		mpz_t * nongenLocalCountGMP, mpz_t * rangeCountGMP,
-		mpz_t * mpzUpperThreshold, Transactions * transactions, uint refCount,
-		uint level);
+void processRecursive(Transactionset * current, Transactions * transactions,
+		uint refCount, uint level);
 
 uint elementsCount(Transactionset * root);
 
 uint nonForbiddenElementsCount(Transactionset * root);
 
 uint getExploredNodesCount();
-
-uint getApproxExploredNodesCount();
 
 void displayElements(Transactionset * root);
 
@@ -62,14 +56,5 @@ int compareTransetPtrByCardAsc(const void * a, const void * b);
 int compareTransetPtrByCardDesc(const void * a, const void * b);
 
 int compareConceptByProc(const void * a, const void * b);
-
-void findToleranceRange(mpz_t * mpzTolRange, uint tolerance, size_t extentSize);
-
-void findThreshold(mpz_t * mpzThreshold, mpz_t * mpzReverseUpperThreshold,
-		uint extentSize, uint threshold, uint precision);
-
-uint hasDoneApprox();
-
-uint hasCrossedThreshold();
 
 #endif

@@ -1,5 +1,5 @@
 # Generated release
-release/dfsp
+release/dfmtp
 release/src/cli.d
 release/src/cli.o
 release/src/main.d
@@ -10,7 +10,7 @@ release/src/transaction_loader.d
 release/src/transaction_loader.o
 
 # Generated debug
-debug/dfsp
+debug/dfmtp
 debug/src/cli.d
 debug/src/cli.o
 debug/src/main.d

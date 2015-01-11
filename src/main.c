@@ -30,10 +30,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <gmp.h>
-#include "stability_processor.h"
 #include "transaction_loader.h"
 #include "cli.h"
+#include "minimal_traversal_processor.h"
 
 int main(int argc, char *argv[]) {
 
@@ -64,29 +63,9 @@ int main(int argc, char *argv[]) {
 	char * selectedConceptsFile;
 
 	uint exploredNodesCount;
-	uint approxExploredNodesCount;
-
-	mpz_t currCptNonGenCountGMP;
-	mpz_t currCptNonGenLocalCountGMP;
-	mpz_t currCptGenCountGMP;
-	mpz_t currCptGenLocalCountGMP;
-	mpz_t currCptTotalCountGMP;
-
-	mpf_t fltCurrCptGenCountGMP;
-	mpf_t fltCurrCptTotalCountGMP;
-	mpf_t fltCurrCptStab;
-
-	mpz_t mpzTolRange;
-	mpz_t mpzUpperThreshold;
-	mpz_t mpzReverseUpperThreshold;
 
 	ssize_t toConcept;
 	ssize_t fromConcept;
-
-	uint upperThreshold;
-	uint stabPrecision;
-
-	uint err;
 
 	//--------------------------------------------------------------------------
 	// Processing
@@ -104,16 +83,7 @@ int main(int argc, char *argv[]) {
 	fromConcept = strtol(argv[3], NULL, 10);
 	toConcept = strtol(argv[4], NULL, 10);
 
-	upperThreshold = parseDoubleFraction(argv[5], &err);
-
-	if (err != 0) {
-		invalidArguments("Invalid upper stability threshold");
-		exit(EXIT_FAILURE);
-	}
-
-	stabPrecision = digitsCount(upperThreshold);
-
-	printf("\nDEPTH-FIRST-STABILITY-PROCESSOR V1.0 Beta\n\n");
+	printf("\nDEPTH-FIRST-MINIMAL-TRAVERSAL-PROCESSOR V1.0 Beta\n\n");
 
 	printf("Using database %s\n", selectedContextFile);
 	printf("Using concepts %s\n", selectedConceptsFile);
@@ -155,7 +125,6 @@ int main(int argc, char *argv[]) {
 
 	printf("Found %u concepts available...\n", conceptListCount);
 	printf("Processing concepts [%zd..%zd]...\n\n", fromConcept, toConcept - 1);
-	printf("Ignore concepts under 0.%u threshold\n\n", upperThreshold);
 
 	for (conceptCounter = fromConcept; conceptCounter < toConcept;
 			conceptCounter++) {
@@ -166,93 +135,28 @@ int main(int argc, char *argv[]) {
 		currCptItemsCnt = currentConcept->itemsCount;
 		currCptTransCnt = currentConcept->transactionsCount;
 
-		//allocate enough memory to hold the non generator counter
-		//The non generator counter will hold at most all combinations possible
-		//By allocating the maximum amount from the beginning we will prevent
-		//on the fly memory reallocation which may cause performance overhead
-		mpz_init2(currCptNonGenCountGMP, currCptTransCnt);
-		mpz_init2(currCptNonGenLocalCountGMP, currCptTransCnt);
-		mpz_init2(currCptGenCountGMP, currCptTransCnt);
-		mpz_init2(currCptGenLocalCountGMP, currCptTransCnt);
-
-		//same for the total count itself
-		mpz_init2(currCptTotalCountGMP, currCptTransCnt);
-		//then set the value of the total count 2^currCptTransCnt which can be
-		//obtained efficiently by setting the currCptTransCnt bit
-		mpz_setbit(currCptTotalCountGMP, currCptTransCnt);
-
-		findThreshold(&mpzUpperThreshold, &mpzReverseUpperThreshold,
-				currCptTransCnt, upperThreshold, stabPrecision);
-
-		//build the tolerance range
-		findToleranceRange(&mpzTolRange, stabPrecision, currCptTransCnt);
-
-		//Total - range
-		mpz_sub(mpzTolRange, currCptTotalCountGMP, mpzTolRange);
-
-		//empty set counted as a non generator
-		mpz_set_ui(currCptNonGenCountGMP, 1);
-		mpz_sub_ui(mpzTolRange, mpzTolRange, 1);
-
 		root = (Transactionset *) malloc(sizeof(Transactionset));
 
-		initialize(currentConcept->transactions, currCptTransCnt,
-				&currCptGenCountGMP, &currCptGenLocalCountGMP, &mpzTolRange, transPtr,
+		initialize(currentConcept->transactions, currCptTransCnt, transPtr,
 				currCptItemsCnt, root);
 
 		if (root->childrenCount > 1) {
-			processRecursive(root, &currCptGenCountGMP, &currCptGenLocalCountGMP,
-					&currCptNonGenCountGMP, &currCptNonGenLocalCountGMP, &mpzTolRange,
-					&mpzUpperThreshold, transPtr, currCptItemsCnt, 1);
+			processRecursive(root, transPtr, currCptItemsCnt, 1);
 		}
 
 		exploredNodesCount = getExploredNodesCount();
-		approxExploredNodesCount = getApproxExploredNodesCount();
 
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 		diff = diffTime(start, end);
 
-		//Whether using positive or negative counting
-		//Stability is obtained using the same method
-		mpf_init2(fltCurrCptGenCountGMP, 1000);
-		mpf_init2(fltCurrCptTotalCountGMP, 1000);
-		mpf_init2(fltCurrCptStab, 1000);
-
 		if (exploredNodesCount < NODE_COUNT_THRESHOLD) {
 
-			mpf_set_z(fltCurrCptGenCountGMP, currCptGenCountGMP);
-			mpf_set_z(fltCurrCptTotalCountGMP, currCptTotalCountGMP);
-			mpf_div(fltCurrCptStab, fltCurrCptGenCountGMP, fltCurrCptTotalCountGMP);
-
-			mpz_add(currCptTotalCountGMP, currCptGenCountGMP, currCptNonGenCountGMP);
-
-			gmp_printf("%4u; %6u; %10u; %10u; %.2f; %3ld,%-5ld; %.5Ff; %3s\n",
-					conceptCounter, currCptTransCnt, exploredNodesCount,
-					approxExploredNodesCount,
-					(double) approxExploredNodesCount / exploredNodesCount, diff.tv_sec,
-					diff.tv_nsec / 10000, fltCurrCptStab,
-					hasCrossedThreshold() == 0 ? "YES" : "NO");
-			//gmp_printf("%Zd\n", currCptGenCountGMP);
-			//gmp_printf("%Zd\n", currCptNonGenCountGMP);
-			//gmp_printf("%Zd\n\n", currCptTotalCountGMP);
+			printf("%4u; %6u; %10u; %3ld,%-5ld;\n", conceptCounter, currCptTransCnt,
+					exploredNodesCount, diff.tv_sec, diff.tv_nsec / 10000);
 		}
 
 		pushTranset(root->alloc);
 		free(root);
-
-		mpz_clear(currCptNonGenCountGMP);
-		mpz_clear(currCptNonGenLocalCountGMP);
-		mpz_clear(currCptTotalCountGMP);
-		mpz_clear(currCptGenCountGMP);
-		mpz_clear(currCptGenLocalCountGMP);
-
-		mpf_clear(fltCurrCptGenCountGMP);
-		mpf_clear(fltCurrCptTotalCountGMP);
-		mpf_clear(fltCurrCptStab);
-
-		mpz_clear(mpzTolRange);
-		mpz_clear(mpzUpperThreshold);
-		mpz_clear(mpzReverseUpperThreshold);
 	}
 
 	freeTransetRepo(transPtr->transactionsCount);

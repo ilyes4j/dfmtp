@@ -28,20 +28,13 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "stability_processor.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include "minimal_traversal_processor.h"
 
 uint nodeCount;
-
-uint approxCount;
-
-uint doneApprox;
-
-uint crossedUpperThreshold;
 
 extern Transactionset ** srcPtrs;
 extern Transactionset ** transPtrs;
@@ -49,44 +42,8 @@ extern Transactionset ** transPtrs;
 extern Transaction backupInter;
 extern Transaction leadInter;
 
-void findThreshold(mpz_t * mpzThreshold, mpz_t * mpzReverseUpperThreshold,
-		uint extentSize, uint threshold, uint precision) {
-
-	mpz_init2(*mpzReverseUpperThreshold, extentSize);
-	mpz_setbit(*mpzReverseUpperThreshold, extentSize);
-
-	mpz_init2(*mpzThreshold, extentSize + sizeof(uint));
-	mpz_setbit(*mpzThreshold, extentSize);
-
-	mpz_mul_ui(*mpzThreshold, *mpzThreshold, threshold);
-	mpz_fdiv_q_ui(*mpzThreshold, *mpzThreshold, pow(10, precision));
-
-	mpz_sub(*mpzThreshold, *mpzReverseUpperThreshold, *mpzThreshold);
-}
-
-void findToleranceRange(mpz_t * mpzTolRange, uint tolerance, size_t extentSize) {
-
-	//processing
-	mpz_init2(*mpzTolRange, extentSize);
-	mpz_setbit(*mpzTolRange, extentSize);
-
-	mpz_fdiv_q_ui(*mpzTolRange, *mpzTolRange, pow(10, tolerance));
-}
-
 uint getExploredNodesCount() {
 	return nodeCount;
-}
-
-uint getApproxExploredNodesCount() {
-	return approxCount;
-}
-
-uint hasDoneApprox() {
-	return doneApprox;
-}
-
-uint hasCrossedThreshold() {
-	return crossedUpperThreshold;
 }
 
 //Build the root Transactionset. The root Transactionset contains an array of
@@ -94,9 +51,8 @@ uint hasCrossedThreshold() {
 //in the formal concept extent. For each single-transaction Transactionset is
 //flagged as a generator or a non generator. A generator is flagged as forbidden
 //and will later be ignored from the exploration process
-void initialize(uint *items, uint itemsCount, mpz_t * genTotalCountGMP,
-		mpz_t * genLocalCountGMP, mpz_t * rangeCountGMP,
-		Transactions * transactions, uint refCount, Transactionset * root) {
+void initialize(uint *items, uint itemsCount, Transactions * transactions,
+		uint refCount, Transactionset * root) {
 
 	AllocTranset * alloc;
 
@@ -174,21 +130,6 @@ void initialize(uint *items, uint itemsCount, mpz_t * genTotalCountGMP,
 
 	//initialize the number of explored candidates
 	nodeCount = j;
-
-	//GMP positive counting
-	//counting all generators and their supersets using GMP Bignum structures
-	mpz_set_ui(*genLocalCountGMP, 0);
-	for (i = itemsCount - 1, j = 0; j < totalChildrenForbiddenCount; i--, j++) {
-		mpz_setbit(*genLocalCountGMP, i);
-	}
-	mpz_add(*genTotalCountGMP, *genTotalCountGMP, *genLocalCountGMP);
-
-	//initialize approximation to not yet found
-	doneApprox = 0;
-	crossedUpperThreshold = 0;
-
-	//update the window guard
-	mpz_sub(*rangeCountGMP, *rangeCountGMP, *genLocalCountGMP);
 }
 
 //Build the resulting intersection between Transaction * result and
@@ -227,11 +168,8 @@ void buildIntersection(Transaction * result, Transaction * left,
 //Each node is breed with its (non-generators) forward sibling to generate its
 //immediate children. Each child is then checked to determine whether it is a
 //generator. This function is then called recursively to process each child.
-void processRecursive(Transactionset * current, mpz_t *genTotalCountGMP,
-		mpz_t *genLocalCountGMP, mpz_t * nongenTotalCountGMP,
-		mpz_t * nongenLocalCountGMP, mpz_t * rangeCountGMP,
-		mpz_t * mpzUpperThreshold, Transactions * transactions, uint refCount,
-		uint level) {
+void processRecursive(Transactionset * current, Transactions * transactions,
+		uint refCount, uint level) {
 
 	uint startIdx;
 
@@ -245,7 +183,7 @@ void processRecursive(Transactionset * current, mpz_t *genTotalCountGMP,
 	Transaction * swapInterPrt;
 
 	//declaration
-	uint j, k, l, currentCount, leftEltPotChildrenCnt, variationValue;
+	uint j, k, currentCount, variationValue;
 
 	int i;
 
@@ -344,42 +282,11 @@ void processRecursive(Transactionset * current, mpz_t *genTotalCountGMP,
 		}
 	}
 
-	//GMP negative counting
-	//counting all non generators and their supersets
-	//TODO use limb direct access to fill whole limbs with ones using a single
-	//operation
-	mpz_set_ui(*nongenLocalCountGMP, 0);
-	mpz_setbit(*nongenLocalCountGMP, currentCount - startIdx);
-	mpz_sub_ui(*nongenLocalCountGMP, *nongenLocalCountGMP, 1);
-	mpz_add(*nongenTotalCountGMP, *nongenTotalCountGMP, *nongenLocalCountGMP);
-	mpz_add_ui(*nongenTotalCountGMP, *nongenTotalCountGMP, startIdx);
-
-	if ((crossedUpperThreshold == 0)
-			&& (mpz_cmp(*mpzUpperThreshold, *nongenTotalCountGMP) < 0)) {
-		approxCount = nodeCount;
-		crossedUpperThreshold = 1;
-
-		//gmp_printf("%Zd\n", *nongenTotalCountGMP);
-		//gmp_printf("%Zd\n", *mpzUpperThreshold);
-	}
-
-	if (doneApprox == 0 && crossedUpperThreshold == 0) {
-		mpz_sub(*rangeCountGMP, *rangeCountGMP, *nongenLocalCountGMP);
-		mpz_sub_ui(*rangeCountGMP, *rangeCountGMP, startIdx);
-		if ( mpz_sgn(*rangeCountGMP) == -1) {
-			approxCount = nodeCount;
-			doneApprox = 1;
-		}
-	}
-
 	//crossing session level
 	for (i = 0; i < startIdx; i++) {
 
 		//retrieve the current crossing element
 		leftElement = transPtrs[i];
-
-		//left side of the crossing elements count
-		leftEltPotChildrenCnt = currentCount - i - 1;
 
 		alloc = popTranset();
 		leftEltChildren = alloc->transet;
@@ -422,39 +329,9 @@ void processRecursive(Transactionset * current, mpz_t *genTotalCountGMP,
 		leftElement->alloc = alloc;
 		leftElement->childrenCount = nonGenCurrCnt;
 
-		//GMP positive counting
-		//counting all generators and their supersets using GMP Bignum structures
-		mpz_set_ui(*genLocalCountGMP, 0);
-		for (j = leftEltPotChildrenCnt - 1, l = 0;
-				l < forbiddenLeftEltChildrenCount; j--, l++) {
-			mpz_setbit(*genLocalCountGMP, j);
-		}
-		mpz_add(*genTotalCountGMP, *genTotalCountGMP, *genLocalCountGMP);
-
-		if (doneApprox == 0 && crossedUpperThreshold == 0) {
-			mpz_sub(*rangeCountGMP, *rangeCountGMP, *genLocalCountGMP);
-			if ( mpz_sgn(*rangeCountGMP) == -1) {
-				approxCount = nodeCount;
-				doneApprox = 1;
-			}
-		}
-
 		if (nodeCount < NODE_COUNT_THRESHOLD) {
 			if (nonGenCurrCnt > 1) {
-				processRecursive(leftElement, genTotalCountGMP, genLocalCountGMP,
-						nongenTotalCountGMP, nongenLocalCountGMP, rangeCountGMP,
-						mpzUpperThreshold, transactions, refCount, level + 1);
-			} else if (nonGenCurrCnt == 1) {
-				mpz_add_ui(*nongenLocalCountGMP, *nongenLocalCountGMP, 1);
-				mpz_add_ui(*nongenTotalCountGMP, *nongenTotalCountGMP, 1);
-
-				if (doneApprox == 0 && crossedUpperThreshold == 0) {
-					mpz_sub_ui(*rangeCountGMP, *rangeCountGMP, 1);
-					if ( mpz_sgn(*rangeCountGMP) == -1) {
-						approxCount = nodeCount;
-						doneApprox = 1;
-					}
-				}
+				processRecursive(leftElement, transactions, refCount, level + 1);
 			}
 		}
 

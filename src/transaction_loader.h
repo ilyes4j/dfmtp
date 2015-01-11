@@ -33,7 +33,6 @@
 
 #include <limits.h>
 #include <time.h>
-#include <gmp.h>
 #include <stdio.h>
 #include <sys/types.h>
 
