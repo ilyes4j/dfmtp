@@ -106,156 +106,6 @@ void getConceptsFileParams(FILE *filePointer, size_t * linesCountPtr,
 	free(line);
 }
 
-void loadLCMConceptsFile(char *file, Concepts *concepts, uint transactionsCount,
-		uint itemsCount) {
-
-	//--------------------------------------------------------------------------
-	// Variables declaration
-	//--------------------------------------------------------------------------
-
-	//a pointer to the file holding the transactions' list
-	FILE *filePointer;
-
-	uint conceptsCount;
-
-	uint conceptsCounter;
-
-	Concept * conceptList;
-
-	Concept * currentConcept;
-
-	//holds one line of the concepts file
-	char *line;
-
-	char *strItem;
-
-	uint * transactionsBuffer;
-
-	uint * itemsBuffer;
-
-	uint transactionsCounter;
-
-	uint itemsCounter;
-
-	uint element;
-
-	uint * conceptTransactions;
-
-	uint * conceptItems;
-
-	size_t lineSize;
-
-	size_t linesCount;
-
-	//--------------------------------------------------------------------------
-	// Processing
-	//--------------------------------------------------------------------------
-
-	//read the transactions file
-	filePointer = fopen(file, "r");
-
-	//exit if there is any problem reading that file
-	if (filePointer == NULL) {
-		printf("Error while opening concepts file %s !", file);
-		exit(EXIT_FAILURE);
-	}
-
-	getConceptsFileParams(filePointer, &linesCount, &lineSize);
-
-	if (linesCount % 2 != 0) {
-		printf("Error while parsing concept file !\n");
-		exit(EXIT_FAILURE);
-	}
-
-	//reset the file pointer to the start of the file for a second full scan
-	fseek(filePointer, 0, SEEK_SET);
-
-	conceptsCount = linesCount / 2;
-
-	transactionsBuffer = (uint *) malloc(sizeof(uint) * transactionsCount);
-
-	itemsBuffer = (uint *) malloc(sizeof(uint) * itemsCount);
-
-	conceptList = (Concept *) malloc(sizeof(Concept) * conceptsCount);
-
-	line = (char *) malloc(sizeof(char) * lineSize);
-
-	conceptsCounter = 0;
-
-	//reading the file line by line
-	while (fgets(line, lineSize, filePointer) != NULL) {
-
-		transactionsCounter = 0;
-		itemsCounter = 0;
-
-		strItem = strtok(line, " ");
-		while (strItem != NULL) {
-			element = strtoul(strItem, NULL, 10);
-			itemsBuffer[itemsCounter] = element;
-			itemsCounter++;
-			strItem = strtok(NULL, " \n");
-		}
-
-		if (fgets(line, lineSize, filePointer) == NULL) {
-			printf("Missing extent line !");
-			exit(EXIT_FAILURE);
-		}
-
-		strItem = strtok(line, " ");
-		while (strItem != NULL) {
-			element = strtoul(strItem, NULL, 10);
-			transactionsBuffer[transactionsCounter] = element;
-			transactionsCounter++;
-			strItem = strtok(NULL, " \n");
-		}
-
-		conceptItems = (uint *) malloc(sizeof(uint) * itemsCounter);
-		memcpy(conceptItems, itemsBuffer, sizeof(uint) * itemsCounter);
-
-		conceptTransactions = (uint *) malloc(sizeof(uint) * transactionsCounter);
-		memcpy(conceptTransactions, transactionsBuffer,
-				sizeof(uint) * transactionsCounter);
-
-		currentConcept = conceptList + conceptsCounter;
-		currentConcept->transactions = conceptTransactions;
-		currentConcept->transactionsCount = transactionsCounter;
-		currentConcept->items = conceptItems;
-		currentConcept->itemsCount = itemsCounter;
-
-		conceptsCounter++;
-	}
-
-	//sort concepts ascending as larger concepts usually takes more time to process
-	qsort(conceptList, conceptsCount, sizeof(Concept), compareCptByTransetSize);
-
-	concepts->concepts = conceptList;
-	concepts->count = conceptsCount;
-
-	free(line);
-	free(transactionsBuffer);
-	free(itemsBuffer);
-	fclose(filePointer);
-}
-
-void unloadConcepts(Concepts * concepts) {
-
-	uint counter;
-	uint count;
-	Concept * conceptPtr;
-	Concept * currConcept;
-
-	conceptPtr = concepts->concepts;
-	count = concepts->count;
-
-	for (counter = 0; counter < count; counter++) {
-		currConcept = conceptPtr + counter;
-		free(currConcept->transactions);
-		free(currConcept->items);
-	}
-
-	free(concepts->concepts);
-}
-
 void getContextFileParams(FILE *filePointer, size_t * transCount,
 		size_t * itemsCount, size_t * lineSize) {
 
@@ -317,6 +167,9 @@ void getContextFileParams(FILE *filePointer, size_t * transCount,
 	//add extra room for the null termination char
 	maxlineSize++;
 
+	//itemsCount = lastItemIndex + 1
+	maxItemsCount++;
+
 	*itemsCount = maxItemsCount;
 	*lineSize = maxlineSize;
 	*transCount = maxTransCount;
@@ -360,7 +213,7 @@ void loadDATContextFile(char * file, Transactions *context) {
 
 	uint *lineBuffer;
 
-	uint currentLineItem = 0;
+	uint currentLineItem;
 
 	uint currentLineItemsIndex;
 
@@ -388,6 +241,8 @@ void loadDATContextFile(char * file, Transactions *context) {
 	//--------------------------------------------------------------------------
 	// Processing
 	//--------------------------------------------------------------------------
+
+	currentLineItem = 0;
 
 	//read the transactions file
 	filePointer = fopen(file, "r");
@@ -438,12 +293,13 @@ void loadDATContextFile(char * file, Transactions *context) {
 
 			strItem = strtok(NULL, " \n");
 			lineBuffer[currentLineItemsIndex] = currentLineItem;
-			currentLineItemsIndex++;
 
 			if (currentLineItemsIndex >= itemsCount) {
 				printf("Error while parsing context file !");
 				exit(EXIT_FAILURE);
 			}
+
+			currentLineItemsIndex++;
 		}
 
 		maxLimbIndex = 0;
@@ -500,27 +356,6 @@ void loadDATContextFile(char * file, Transactions *context) {
 	free(line);
 
 	fclose(filePointer);
-}
-
-void printfConcept(Concept * concept) {
-
-	uint i;
-	uint count;
-	uint * items;
-
-	printf("<");
-	count = concept->transactionsCount;
-	items = concept->transactions;
-	for (i = 0; i < count; i++) {
-		printf("%d ", items[i]);
-	}
-	printf(",");
-	count = concept->itemsCount;
-	items = concept->items;
-	for (i = 0; i < count; i++) {
-		printf("%d ", items[i]);
-	}
-	printf(">");
 }
 
 void initTransetPool(uint transCount, uint limbCount) {
@@ -641,8 +476,4 @@ void freeTransetRepo(uint transCount) {
 
 	free(backupInter.buffer);
 	free(leadInter.buffer);
-}
-
-int compareCptByTransetSize(const void * a, const void * b) {
-	return (((Concept*) a)->transactionsCount - ((Concept*) b)->transactionsCount);
 }

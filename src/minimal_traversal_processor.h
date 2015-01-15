@@ -33,17 +33,18 @@
 
 #include "transaction_loader.h"
 
-void initialize(uint *items, uint itemsCount, Transactions * transactions,
-		uint refCount, Transactionset * root);
+void initialize(Transactions * transactions, Transactionset * root);
 
 void processRecursive(Transactionset * current, Transactions * transactions,
-		uint refCount, uint level);
+		uint level);
 
 uint elementsCount(Transactionset * root);
 
 uint nonForbiddenElementsCount(Transactionset * root);
 
 uint getExploredNodesCount();
+
+uint getMinimalTraversalCount();
 
 void displayElements(Transactionset * root);
 

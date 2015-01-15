@@ -80,21 +80,6 @@ struct transactions {
 };
 typedef struct transactions Transactions;
 
-struct concept {
-	uint *items;
-	uint *transactions;
-	uint itemsCount;
-	uint transactionsCount;
-	uint processed;
-};
-typedef struct concept Concept;
-
-struct concepts {
-	Concept * concepts;
-	uint count;
-};
-typedef struct concepts Concepts;
-
 struct transactionset;
 typedef struct transactionset Transactionset;
 
@@ -119,13 +104,6 @@ struct transactionset {
 };
 
 void loadDATContextFile(char * file, Transactions *context);
-
-void loadLCMConceptsFile(char *file, Concepts *concepts, uint transactionsCount,
-		uint itemsCount);
-
-void unloadConcepts(Concepts * concepts);
-
-void printfConcept(Concept * concept);
 
 void initTransetPool(uint transCount, uint limbCount);
 

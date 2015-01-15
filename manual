@@ -15,9 +15,6 @@ OPTIONS
 	<context_file>
 		file containing the formal context.
 		
-	<concepts_file>
-		file containing the formal concepts to be processed
-		
 Example
 
-	dfsp data/chess/chess.dat data/chess/chess_concepts.dat -100 0
+	dfmtp data/chess/chess.dat

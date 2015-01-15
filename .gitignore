@@ -4,8 +4,8 @@ release/src/cli.d
 release/src/cli.o
 release/src/main.d
 release/src/main.o
-release/src/stability_processor.d
-release/src/stability_processor.o
+release/src/minimal_traversal_processor.d
+release/src/minimal_traversal_processor.o
 release/src/transaction_loader.d
 release/src/transaction_loader.o
 
@@ -15,8 +15,8 @@ debug/src/cli.d
 debug/src/cli.o
 debug/src/main.d
 debug/src/main.o
-debug/src/stability_processor.d
-debug/src/stability_processor.o
+debug/src/minimal_traversal_processor.d
+debug/src/minimal_traversal_processor.o
 debug/src/transaction_loader.d
 debug/src/transaction_loader.o
 

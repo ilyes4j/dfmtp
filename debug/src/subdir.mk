@@ -6,19 +6,19 @@
 C_SRCS += \
 ../src/cli.c \
 ../src/main.c \
-../src/stability_processor.c \
+../src/minimal_traversal_processor.c \
 ../src/transaction_loader.c 
 
 OBJS += \
 ./src/cli.o \
 ./src/main.o \
-./src/stability_processor.o \
+./src/minimal_traversal_processor.o \
 ./src/transaction_loader.o 
 
 C_DEPS += \
 ./src/cli.d \
 ./src/main.d \
-./src/stability_processor.d \
+./src/minimal_traversal_processor.d \
 ./src/transaction_loader.d 
 
 
@@ -26,7 +26,7 @@ C_DEPS += \
 src/%.o: ../src/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C Compiler'
-	gcc -I"../libs/gmp" -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	gcc -O0 -g3 -Wall -Wextra -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

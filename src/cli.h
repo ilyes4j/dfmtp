@@ -35,10 +35,6 @@
 
 #define manual "manual"
 
-uint parseDoubleFraction(const char * const strDouble, uint * const err);
-
 void invalidArguments(char * message);
-
-unsigned int digitsCount(unsigned int value);
 
 #endif /* CLI_H_ */

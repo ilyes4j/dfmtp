@@ -48,30 +48,19 @@ int main(int argc, char *argv[]) {
 	Transactions trans;
 	Transactions * transPtr;
 
-	Concepts concepts;
-	Concepts * conceptsPtr;
-
-	Concept * conceptList;
-	Concept * currentConcept;
-
-	uint currCptItemsCnt;
-	uint currCptTransCnt;
-	uint conceptCounter;
-	uint conceptListCount;
-
 	char * selectedContextFile;
-	char * selectedConceptsFile;
 
 	uint exploredNodesCount;
+	uint mtCount;
 
-	ssize_t toConcept;
-	ssize_t fromConcept;
+	uint *transet;
+	uint transetSize;
+	uint counter;
 
 	//--------------------------------------------------------------------------
 	// Processing
 	//--------------------------------------------------------------------------
 	transPtr = &trans;
-	conceptsPtr = &concepts;
 
 	if (argc < 2) {
 		invalidArguments("");
@@ -79,14 +68,10 @@ int main(int argc, char *argv[]) {
 	}
 
 	selectedContextFile = argv[1];
-	selectedConceptsFile = argv[2];
-	fromConcept = strtol(argv[3], NULL, 10);
-	toConcept = strtol(argv[4], NULL, 10);
 
-	printf("\nDEPTH-FIRST-MINIMAL-TRAVERSAL-PROCESSOR V1.0 Beta\n\n");
+	printf("\nDEPTH-FIRST-MINIMAL-TRAVERSAL-MINER V1.0 Beta\n\n");
 
 	printf("Using database %s\n", selectedContextFile);
-	printf("Using concepts %s\n", selectedConceptsFile);
 
 	printf("\nLoading transactions...\n");
 
@@ -94,74 +79,43 @@ int main(int argc, char *argv[]) {
 
 	printf("Transactions loaded\n");
 
-	printf("\nLoading Formal Concepts...\n");
-
-	loadLCMConceptsFile(selectedConceptsFile, conceptsPtr,
-			transPtr->transactionsCount, transPtr->itemCount);
-
-	printf("Formal Concepts Loaded\n\n");
-
 	initTransetPool(transPtr->transactionsCount, transPtr->limbCount);
 
 	printf("Output format :\n");
-	printf("[Index][Extent][visited][approx][gain][Time][Stability][Done]\n\n");
+	printf("[visited][MTCount]\n\n");
 
-	conceptList = concepts.concepts;
-	conceptListCount = concepts.count;
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
 
-	//if negative value it is considered an offset to the concept count
-	toConcept = toConcept > 0 ? toConcept : conceptListCount + toConcept;
-	//if negative value is way too big set it to end of the list
-	toConcept = toConcept > 0 ? toConcept : conceptListCount;
-	//if positive value out of bounds set to end of the list
-	toConcept = toConcept > conceptListCount ? conceptListCount : toConcept;
-
-	//if negative value it is considered an offset to the concept count
-	fromConcept = fromConcept > 0 ? fromConcept : conceptListCount + fromConcept;
-	//if negative value is way too big set to start of the list
-	fromConcept = fromConcept > 0 ? fromConcept : 0;
-	//if positive value out of bounds set to start of the list
-	fromConcept = fromConcept < toConcept ? fromConcept : 0;
-
-	printf("Found %u concepts available...\n", conceptListCount);
-	printf("Processing concepts [%zd..%zd]...\n\n", fromConcept, toConcept - 1);
-
-	for (conceptCounter = fromConcept; conceptCounter < toConcept;
-			conceptCounter++) {
-
-		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-
-		currentConcept = conceptList + conceptCounter;
-		currCptItemsCnt = currentConcept->itemsCount;
-		currCptTransCnt = currentConcept->transactionsCount;
-
-		root = (Transactionset *) malloc(sizeof(Transactionset));
-
-		initialize(currentConcept->transactions, currCptTransCnt, transPtr,
-				currCptItemsCnt, root);
-
-		if (root->childrenCount > 1) {
-			processRecursive(root, transPtr, currCptItemsCnt, 1);
-		}
-
-		exploredNodesCount = getExploredNodesCount();
-
-		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-		diff = diffTime(start, end);
-
-		if (exploredNodesCount < NODE_COUNT_THRESHOLD) {
-
-			printf("%4u; %6u; %10u; %3ld,%-5ld;\n", conceptCounter, currCptTransCnt,
-					exploredNodesCount, diff.tv_sec, diff.tv_nsec / 10000);
-		}
-
-		pushTranset(root->alloc);
-		free(root);
+	transetSize = transPtr->transactionsCount;
+	transet = (uint *) malloc(transetSize * sizeof(uint));
+	for (counter = 0; counter < transetSize; counter++) {
+		transet[counter] = counter;
 	}
 
-	freeTransetRepo(transPtr->transactionsCount);
+	root = (Transactionset *) malloc(sizeof(Transactionset));
 
-	unloadConcepts(conceptsPtr);
+	initialize(transPtr, root);
+
+	if (root->childrenCount > 1) {
+		processRecursive(root, transPtr, 1);
+	}
+
+	exploredNodesCount = getExploredNodesCount();
+	mtCount = getMinimalTraversalCount();
+
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+	diff = diffTime(start, end);
+
+	if (exploredNodesCount < NODE_COUNT_THRESHOLD) {
+
+		printf("%10u; %10u; %3ld,%-5ld\n", exploredNodesCount, mtCount,
+				diff.tv_sec, diff.tv_nsec / 10000);
+	}
+
+	pushTranset(root->alloc);
+	free(root);
+
+	freeTransetRepo(transPtr->transactionsCount);
 
 	free(transPtr->transBuffArea);
 	free(transPtr->encodedTransactions);
