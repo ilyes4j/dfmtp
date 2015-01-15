@@ -53,10 +53,6 @@ int main(int argc, char *argv[]) {
 	uint exploredNodesCount;
 	uint mtCount;
 
-	uint *transet;
-	uint transetSize;
-	uint counter;
-
 	//--------------------------------------------------------------------------
 	// Processing
 	//--------------------------------------------------------------------------
@@ -85,12 +81,6 @@ int main(int argc, char *argv[]) {
 	printf("[visited][MTCount]\n\n");
 
 	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-
-	transetSize = transPtr->transactionsCount;
-	transet = (uint *) malloc(transetSize * sizeof(uint));
-	for (counter = 0; counter < transetSize; counter++) {
-		transet[counter] = counter;
-	}
 
 	root = (Transactionset *) malloc(sizeof(Transactionset));
 
